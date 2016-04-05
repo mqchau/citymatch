@@ -4,6 +4,14 @@ import pickle
 import pprint
 import requests
 from bs4 import BeautifulSoup
+import argparse
+import copy
+
+
+# GLOBAL VAR
+spark_flag = False
+
+
 
 # remove extra \n and sub-cities
 def filter_paren(s):
@@ -22,6 +30,7 @@ def clean_data(cities):
     
     return list(filter(filter_paren, c))
     
+
 
 def get_list_of_city():
     out = []
@@ -70,25 +79,71 @@ def get_zip_code(name, state):
     else:
         return []
 
+def get_city_in_one_page(page_idx):
+    page_idx = int(page_idx)
+
+    url = "http://www.topix.com/city/list/"
+    if page_idx > 1:
+        url = url+'p'+str(page_idx)
+    print(url)
+    handle = requests.get(url)
+    data = handle.text
+    soup = BeautifulSoup(data, 'html.parser')
+    d = soup.find_all('ul', class_='dir_col')
+    out = []
+    for i in range(len(d)-1):
+        out.extend(clean_data(d[i].get_text()))
+    if spark_flag:
+        return (" ", out)
+    else:
+        return out
+
+def combine_city(a,b):
+    print(a)
+    print("--------------------------------------------------")
+    print(b)
+    # return " ", a.extend(b)
+    return copy.copy(a).extend(copy.copy(b))
 
 if __name__ == "__main__":
-    # list_of_city = get_list_of_city()
-    # list_of_city_and_zipcode = get_zipcode_per_city(list_of_city)
 
-    # f = open('cities.txt', 'w')
-    # for s in list_of_city:
-    #     f.writelines(s+'\n')
-    # f.close()
-    # print('Done')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--spark", action='store_true', help="run in spark mode")
+    parser.add_argument("-n", type=int, help="number of iterations to run on single thread, 0 for maximum", default=1)
+    args = parser.parse_args()
 
-    with open("cities.txt", "r") as f:
-        lines = f.readlines()
-    city_string_list = list(map(lambda x: x.rstrip(), lines))
-    city_string_list = list(filter(lambda x: len(x) > 0, city_string_list))
-    list_of_city_and_zipcode = get_zipcode_per_city(city_string_list)
-    with open("cities_with_zip.pickle", "wb") as f:
-        pickle.dump(list_of_city_and_zipcode, f)
+    pp = pprint.PrettyPrinter(indent=4)
 
+    if args.spark:
+        spark_flag = True
+        from pyspark import SparkContext
+        from operator import add
 
+        # collect all city names
+        sc = SparkContext(appName="PythonWordCount")
+        lines = sc.textFile("pages_to_read.txt", 8)
+        city_names = lines.map(get_city_in_one_page).reduceByKey(add)
+        
+        output = city_names.collect()
 
+        with open("spark_output.pickle", "wb") as f:
+            pickle.dump(output, f)
+        with open("city_list.pickle", "wb") as f:
+            pickle.dump(output[0][1], f)
+        with open("city_list.txt", "w") as f:
+            for onecity in output[0][1]:
+                f.write(onecity + "\n")
 
+        sc.stop()
+    else:
+        if args.n == 0:
+            list_of_city = get_list_of_city()
+            list_of_city_and_zipcode = get_zipcode_per_city(list_of_city)
+            with open("cities_with_zip.pickle", "wb") as f:
+                pickle.dump(list_of_city_and_zipcode, f)
+        else:
+            page_idx = 1
+            city_in_one_page = get_city_in_one_page(page_idx)
+            name, state = extract_city_name_state(city_in_one_page[0])
+            city_and_zip = get_zip_code(name, state)
+            pp.pprint(city_and_zip)
