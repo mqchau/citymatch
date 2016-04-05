@@ -1,4 +1,7 @@
 import pprint
+import requests
+from bs4 import BeautifulSoup
+import re
 
 #--------------------------------------------------
 # Look up list of top 50 cities that best match this char object
