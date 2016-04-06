@@ -1,9 +1,16 @@
+
 import pprint
 import requests
 from bs4 import BeautifulSoup
+import ipdb
 import re
 import argparse
 import time
+import pickle
+import os
+
+class HttpRequestError(Exception):
+    pass
 
 #--------------------------------------------------
 # Look up list of top 50 cities that best match this char object
@@ -13,22 +20,25 @@ import time
 #   - cost of living: integer, round to thousands
 #--------------------------------------------------
 def lookup_cost_by_zip(zipcode):
-    r = requests.get('http://www.city-data.com/zips/%d.html' % zipcode)
-
+    try:
+        r = requests.get('http://www.city-data.com/zips/%s.html' % zipcode, timeout=10)
+    except:
+        raise HttpRequestError("Can't get city-data response")
+    
     if r.status_code != 200:
-        raise Exception("Error looking up cost of living in %d" % zipcode)
+        raise Exception("Error looking up cost of living in %s" % zipcode)
 
     soup = BeautifulSoup(r.text, "html.parser")
     all_b = soup.find_all("b")
     b_cost_living = list(filter(lambda x: re.search("cost of living index", x.get_text()), all_b))
     if len(b_cost_living) == 0:
-        raise Exception("Can't find cost of living in %d" % zipcode)
+        raise Exception("Can't find cost of living in %s" % zipcode)
     cost_living_string = b_cost_living[0].next_sibling.strip()
     try:
         cost_living = float(cost_living_string)
         return cost_living
     except:
-        raise Exception("Can't find cost of living in %d" % zipcode)
+        raise Exception("Can't find cost of living in %s" % zipcode)
 
 def get_cost_by_city(city_string):
     splitted = city_string.split("\t")
@@ -75,4 +85,28 @@ if __name__ == "__main__":
                 f.write("%s\t%s\n" % (cityname, str(cost)))
 
         sc.stop()
+    else:
+        with open("cities_with_zip_cost.pickle", "rb") as f:
+            all_cities = pickle.load(f)
+        try:
+            for onecity in all_cities:
+                # ipdb.set_trace()
+                if "cost" not in onecity:
+                    for onezip in onecity["zipcode"]:
+                        try:
+                            onecity["cost"] = lookup_cost_by_zip(onezip)
+                            break
+                        except HttpRequestError:
+                            raise Exception("Time out from city-data")
+                        except:
+                            pass
+                    if "cost" not in onecity:
+                        onecity["cost"] = 0
+                    print("%s, %s=%f" % (onecity["name"], onecity["state"], onecity["cost"]))
+        except:
+            pass
+        with open("cities_with_zip_cost.pickle", "wb") as f:
+            pickle.dump(all_cities, f)
+
+
 
