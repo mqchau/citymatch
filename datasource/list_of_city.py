@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 import argparse
 import copy
+import time
 
 
 # GLOBAL VAR
@@ -98,12 +99,14 @@ def get_city_in_one_page(page_idx):
     else:
         return out
 
-def combine_city(a,b):
-    print(a)
-    print("--------------------------------------------------")
-    print(b)
-    # return " ", a.extend(b)
-    return copy.copy(a).extend(copy.copy(b))
+def get_zip_code_from_name(city_string):
+    # print(city_string)
+    name, state = extract_city_name_state(city_string)
+    zipcode = get_zip_code(name, state)
+    if spark_flag:
+        return (city_string, zipcode)
+    else:
+        return zipcode
 
 if __name__ == "__main__":
 
@@ -116,25 +119,48 @@ if __name__ == "__main__":
 
     if args.spark:
         spark_flag = True
-        from pyspark import SparkContext
+        from pyspark import SparkContext, SparkConf
         from operator import add
 
         # collect all city names
-        sc = SparkContext(appName="PythonWordCount")
-        lines = sc.textFile("pages_to_read.txt", 8)
-        city_names = lines.map(get_city_in_one_page).reduceByKey(add)
+        # sc = SparkContext(appName="get_city_name")
+        # lines = sc.textFile("pages_to_read.txt", 8)
+        # city_names = lines.map(get_city_in_one_page).reduceByKey(add)
+        
+        # output = city_names.collect()
+
+        # with open("spark_output.pickle", "wb") as f:
+        #     pickle.dump(output, f)
+        # with open("city_list.pickle", "wb") as f:
+        #     pickle.dump(output[0][1], f)
+        # with open("city_list.txt", "w") as f:
+        #     for onecity in output[0][1]:
+        #         f.write(onecity + "\n")
+
+        # sc.stop()
+
+        # collect city name and its zip code
+        start = time.time()
+        conf = SparkConf().setAppName("get_zip_code").setMaster("local")
+        sc = SparkContext(conf=conf)
+        # sc = SparkContext(appName="get_zip_code")
+        lines = sc.textFile("city_list_short.txt", 1)
+        city_names = lines.map(get_zip_code_from_name)
         
         output = city_names.collect()
+        end = time.time()
+        print("job finished in %f seconds" % (end-start))
 
         with open("spark_output.pickle", "wb") as f:
             pickle.dump(output, f)
-        with open("city_list.pickle", "wb") as f:
-            pickle.dump(output[0][1], f)
-        with open("city_list.txt", "w") as f:
-            for onecity in output[0][1]:
-                f.write(onecity + "\n")
+        # with open("city_list.pickle", "wb") as f:
+        #     pickle.dump(output[0][1], f)
+        with open("city_list_with_zipcode.txt", "w") as f:
+            for (cityname, zipcodes) in output:
+                f.write("%s-%s\n" % (cityname, ','.join(map(lambda x: str(x), zipcodes))))
 
         sc.stop()
+
     else:
         if args.n == 0:
             list_of_city = get_list_of_city()
