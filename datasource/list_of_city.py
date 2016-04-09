@@ -61,7 +61,7 @@ def get_zipcode_per_city(citylist):
     return all_cities_with_zip 
         
 def extract_city_name_state(city_string):
-    m = re.search("(\w+), (\w{2})", city_string)
+    m = re.search("^(.+), (\w{2})", city_string)
     if not m:
         raise Exception("Can't extract city name and state from %s" % city_string)
     return m.group(1), m.group(2)
@@ -100,8 +100,8 @@ def get_city_in_one_page(page_idx):
         return out
 
 def get_zip_code_from_name(city_string):
-    # print(city_string)
     name, state = extract_city_name_state(city_string)
+    print(name, state)
     zipcode = get_zip_code(name, state)
     if spark_flag:
         return (city_string, zipcode)
@@ -141,12 +141,10 @@ if __name__ == "__main__":
 
         # collect city name and its zip code
         start = time.time()
-        conf = SparkConf().setAppName("get_zip_code").setMaster("local")
+        conf = SparkConf().setAppName("get_zip_code").setMaster("local").set("spark.default.parallelism", 32)
         sc = SparkContext(conf=conf)
-        # sc = SparkContext(appName="get_zip_code")
-        lines = sc.textFile("city_list_short.txt", 1)
+        lines = sc.textFile("city_list.txt", 8)
         city_names = lines.map(get_zip_code_from_name)
-        
         output = city_names.collect()
         end = time.time()
         print("job finished in %f seconds" % (end-start))
