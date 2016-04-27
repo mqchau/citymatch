@@ -7,6 +7,9 @@ import ipdb
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF8')
 
+class HttpRequestError(Exception):
+    pass
+
 #--------------------------------------------------
 # Look up expected salary of an occupation in a city
 # Input:
@@ -16,7 +19,12 @@ locale.setlocale(locale.LC_ALL, 'en_US.UTF8')
 #   - expected salary of that occupation in that city: integer, round to thousands
 #--------------------------------------------------
 def lookup_salary_by_occup_city(occupation, zipcode):
-    r = requests.get('http://www.indeed.com/salary?q1=%s&l1=%s' % (urlify(occupation), str(zipcode)))
+
+    try:
+        r = requests.get('http://www.indeed.com/salary?q1=%s&l1=%s' % (urlify(occupation), str(zipcode)), timeout=10)
+    except:
+        raise HttpRequestError("Can't get indeed response")
+
     if r.status_code != 200:
         raise Exception("Error looking up occupation %s in %s" % (occupation, zipcode))
 
