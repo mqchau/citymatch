@@ -2,12 +2,11 @@ import pprint
 import os.path
 import json
 import time
-from pyspark import SparkContext, SparkConf
+import ipdb
 
 all_cities = None
-conf = SparkConf().setAppName("rate_city").setMaster("local[4]")
-sc = SparkContext(conf=conf)
-lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
+with open(os.path.join("datasource", "all_cities_data_dummy.json"), "r") as f:
+    all_cities_raw = map(lambda x: json.loads(x), f.readlines())
 
 # --------------------------------------------------
 # Find cities with best matches to the char and highest ratio of salaray / cost
@@ -18,11 +17,14 @@ lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
 #   - List of top 10 matches, with details as indicated in datasource/city_char.py
 #        And expected salary and cost
 # --------------------------------------------------
-def rate_city(occupation, city_char):
+def rate_city_single_core(occupation, city_char):
     # top 50 cities by characteristics
-    best_cities_char = lines.map(lambda x: rate_city_char(json.loads(x), city_char)).top(500, lambda x: x[1])
-    best_cities_cost = sc.parallelize(best_cities_char).map(lambda x: (x[0], rate_city_job(x[0], occupation) + x[1])).sortBy(lambda x: x[1], ascending=False)
-    return best_cities_cost.collect()
+    score_cities_char = map(lambda x: rate_city_char(x, city_char), all_cities_raw)
+    best_cities_char = sorted(score_cities_char, key=lambda x: x[1], reverse=True)[:500] 
+    job_cities_score = map(lambda x:  (x[0], rate_city_job(x[0], occupation) + x[1]), best_cities_char)
+
+    best_cities_cost = sorted(job_cities_score, key=lambda x: x[1], reverse=True)
+    return best_cities_cost
 
 def rampf(x):
     return x if x > 0 else 0
@@ -93,10 +95,9 @@ if __name__ == "__main__":
 
 
     pp = pprint.PrettyPrinter(indent=4)
-    rate_city(occupation, city_char)
 
     start_time = time.time()
-    all_cities = rate_city(occupation, city_char)
+    all_cities = rate_city_single_core(occupation, city_char)
     print("--- finished in %s seconds ---" % (time.time() - start_time))
 
     all_cities_result = all_cities
