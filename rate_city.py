@@ -20,10 +20,7 @@ lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
 # --------------------------------------------------
 def rate_city(occupation, city_char):
     # top 50 cities by characteristics
-    best_cities_char = lines.map(lambda x: rate_city_char(json.loads(x), city_char)).top(50, lambda x: x[1])
-    # 
-    # top_cities_with_char_rate = sorted(all_cities, key=(lambda x: rate_one_city(x, city_char)), reverse=True)
-    # print("--- finished in %s seconds ---" % (time.time() - start_time))
+    best_cities_char = lines.map(lambda x: rate_city_char(json.loads(x), city_char)).top(500, lambda x: x[1])
     return best_cities_char
 
 def rampf(x):
@@ -78,6 +75,7 @@ if __name__ == "__main__":
     print("--- finished in %s seconds ---" % (time.time() - start_time))
 
     all_cities_result = all_cities
-
-    pp.pprint(all_cities_result)
+    
+    with open(".tmp.txt", "w") as f:
+        pprint.pprint(all_cities_result, stream=f, indent=4)
 
