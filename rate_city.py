@@ -21,7 +21,9 @@ lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
 def rate_city(occupation, city_char):
     # top 50 cities by characteristics
     best_cities_char = lines.map(lambda x: rate_city_char(json.loads(x), city_char)).top(500, lambda x: x[1])
-    return best_cities_char
+    best_cities_cost = sc.parallelize(best_cities_char).map(lambda x: (x[0], rate_city_job(x[0], occupation) + x[1])).sortBy(lambda x: x[1], ascending=False)
+    # best_cities_cost = sc.parallelize(best_cities_char).map(lambda x: (x[0], rate_city_job(x[0], occupation))).sortBy(lambda x: x[1], ascending=False)
+    return best_cities_cost.collect()
 
 def rampf(x):
     return x if x > 0 else 0
@@ -44,7 +46,31 @@ def rate_city_char(city_obj, city_char):
     urban_score = 25 - min(map(lambda x: abs(x - city_type), settle_type)) * 12.5
 
     char_score = climate_score + urban_score
-    return (city_obj["name"] + ", " + city_obj["state"], char_score)
+    return (city_obj, char_score)
+
+def rate_city_job(city_obj, occupation):
+    if "job" not in city_obj or city_obj["cost"] == 0:
+        return 0
+
+    salary = 0
+    for cached_occ in city_obj["job"]:
+        if cached_occ["name"] == occupation:
+            salary = cached_occ["salary"]
+            break
+    if salary == 0:
+        # will call indeed api here
+        # for now just hard code value
+        salary = 30000
+
+    average_household_income = 55000
+    raw_salary_score = salary / (city_obj["cost"] / 100.0 * average_household_income)
+    
+    if raw_salary_score > 2:
+        return 50
+    elif raw_salary_score < 0.5:
+        return 0
+    else:
+        return (raw_salary_score - 0.5) / 1.5 * 50
 
 def get_settle_type(type_str):
     if type_str == "rural":
