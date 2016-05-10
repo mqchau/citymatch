@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from rate_city import rate_city
+from rate_city import rate_city_single_core
 app = Flask(__name__)
 
 @app.route('/')
@@ -17,7 +17,9 @@ def rate_city_api():
         "settle_type": request.form["settle_type"].split(",")
     }
     occupation = request.form["occupation"]
-    return jsonify(rate_city(occupation, city_char))
+    
+    result = rate_city_single_core(occupation, city_char)
+    return jsonify({"result":result})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", debug=True)

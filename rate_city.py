@@ -4,9 +4,9 @@ import json
 import time
 import ipdb
 
-all_cities = None
+all_cities_raw = None
 with open(os.path.join("datasource", "all_cities_data_dummy.json"), "r") as f:
-    all_cities_raw = map(lambda x: json.loads(x), f.readlines())
+    all_cities_raw = list(map(lambda x: json.loads(x), f.readlines()))
 
 # --------------------------------------------------
 # Find cities with best matches to the char and highest ratio of salaray / cost
@@ -18,6 +18,7 @@ with open(os.path.join("datasource", "all_cities_data_dummy.json"), "r") as f:
 #        And expected salary and cost
 # --------------------------------------------------
 def rate_city_single_core(occupation, city_char):
+    global all_cities_raw
     # top 50 cities by characteristics
     score_cities_char = map(lambda x: rate_city_char(x, city_char), all_cities_raw)
     best_cities_char = sorted(score_cities_char, key=lambda x: x[1], reverse=True)[:500] 
