@@ -5,11 +5,9 @@ import time
 from pyspark import SparkContext, SparkConf
 
 all_cities = None
-
-def load_data_to_memory():
-    global all_cities
-    with open(os.path.join("datasource", "all_cities_data.json"), "r") as f:
-        all_cities = map(lambda x: json.loads(x), f.readlines())
+conf = SparkConf().setAppName("rate_city").setMaster("local[4]")
+sc = SparkContext(conf=conf)
+lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
 
 # --------------------------------------------------
 # Find cities with best matches to the char and highest ratio of salaray / cost
@@ -21,14 +19,43 @@ def load_data_to_memory():
 #        And expected salary and cost
 # --------------------------------------------------
 def rate_city(occupation, city_char):
-    start_time = time.time()
-    # all_cities_with_char_rate = map(lambda x: rate_one_city(x, city_char), all_cities)
-    top_cities_with_char_rate = sorted(all_cities, key=(lambda x: rate_one_city(x, city_char)), reverse=True)
-    print("--- finished in %s seconds ---" % (time.time() - start_time))
-    return top_cities_with_char_rate
+    # top 50 cities by characteristics
+    best_cities_char = lines.map(lambda x: rate_city_char(json.loads(x), city_char)).top(50, lambda x: x[1])
+    # 
+    # top_cities_with_char_rate = sorted(all_cities, key=(lambda x: rate_one_city(x, city_char)), reverse=True)
+    # print("--- finished in %s seconds ---" % (time.time() - start_time))
+    return best_cities_char
 
-def rate_one_city(city_obj, city_char):
-    return (city_obj["name"] + ", " + city_obj["state"], city_obj["cost"])
+def rampf(x):
+    return x if x > 0 else 0
+
+def rate_city_char(city_obj, city_char):
+    # calculate climate score 
+    temp_score = rampf(12.5 - rampf(city_char["temp_low"] - city_obj["temp_low"]) -  rampf(city_obj["temp_high"] - city_char["temp_high"]))
+    precip_score = rampf(12.5 - rampf(city_char["precip_low"] - city_obj["precip_low"]) -  rampf(city_obj["precip_high"] - city_char["precip_high"]))
+    climate_score = temp_score + precip_score 
+
+    # calculate city type and score it
+    if city_obj["density"] < 300:
+        city_type = 0 
+    elif city_obj["density"] < 1000:
+        city_type = 1
+    else:
+        city_type = 2
+
+    settle_type = map(lambda x: get_settle_type(x), city_char["settle_type"])
+    urban_score = 25 - min(map(lambda x: abs(x - city_type), settle_type)) * 12.5
+
+    char_score = climate_score + urban_score
+    return (city_obj["name"] + ", " + city_obj["state"], char_score)
+
+def get_settle_type(type_str):
+    if type_str == "rural":
+        return 0
+    elif type_str == "suburban":
+        return 1
+    else:
+        return 2
 
 if __name__ == "__main__":
     # load_data_to_memory()
@@ -38,25 +65,16 @@ if __name__ == "__main__":
         "temp_high" : 120,
         "precip_low" : 0,
         "precip_high" : 20,
-        "settle_type": "urban"
+        "settle_type": ["urban"]
     }
+    occupation = "Physical Therapist"
 
 
     pp = pprint.PrettyPrinter(indent=4)
-    # a = rate_city("Sales Associate", {
-    #     "temp_low" : 40,
-    #     "temp_high" : 120,
-    #     "precip_low" : 0,
-    #     "precip_high" : 20,
-    #     "settle_type": "urban"
-    # })
-
-    conf = SparkConf().setAppName("rate_city").setMaster("local[4]")
-    sc = SparkContext(conf=conf)
-    lines = sc.textFile(os.path.join("datasource", "all_cities_data.json"), 4)
+    rate_city(occupation, city_char)
 
     start_time = time.time()
-    all_cities = lines.map(lambda x: rate_one_city(json.loads(x), city_char)).top(2, lambda x: x[1])
+    all_cities = rate_city(occupation, city_char)
     print("--- finished in %s seconds ---" % (time.time() - start_time))
 
     all_cities_result = all_cities
