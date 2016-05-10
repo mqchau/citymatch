@@ -5,6 +5,9 @@ import time
 from pyspark import SparkContext, SparkConf
 
 all_cities = None
+conf = SparkConf().setAppName("rate_city").setMaster("local[4]")
+sc = SparkContext(conf=conf)
+lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
 
 # --------------------------------------------------
 # Find cities with best matches to the char and highest ratio of salaray / cost
@@ -16,16 +19,9 @@ all_cities = None
 #        And expected salary and cost
 # --------------------------------------------------
 def rate_city(occupation, city_char):
-    conf = SparkConf().setAppName("rate_city").setMaster("local[4]")
-    sc = SparkContext(conf=conf)
-    lines = sc.textFile(os.path.join("datasource", "all_cities_data_dummy.json"), 4)
     # top 50 cities by characteristics
-    print("debug 1")
     best_cities_char = lines.map(lambda x: rate_city_char(json.loads(x), city_char)).top(500, lambda x: x[1])
-    print("debug 2")
     best_cities_cost = sc.parallelize(best_cities_char).map(lambda x: (x[0], rate_city_job(x[0], occupation) + x[1])).sortBy(lambda x: x[1], ascending=False)
-    print("debug 3")
-    # best_cities_cost = sc.parallelize(best_cities_char).map(lambda x: (x[0], rate_city_job(x[0], occupation))).sortBy(lambda x: x[1], ascending=False)
     return best_cities_cost.collect()
 
 def rampf(x):
