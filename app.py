@@ -1,10 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, url_for, redirect
 from rate_city import rate_city_single_core
 app = Flask(__name__)
 
+@app.route('/js/<path:path>')
+def send_js(path):
+    return send_from_directory('static/js', path)
+
+@app.route('/index.html')
 @app.route('/')
-def hello_world():
-    return 'Hello World!'
+def send_index():
+    return send_from_directory('static', 'index.html')
 
 @app.route('/ratecity', methods = ['POST'])
 def rate_city_api():
