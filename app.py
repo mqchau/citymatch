@@ -12,8 +12,7 @@ def rate_city_api():
     city_char = {
         "temp_low" : int(request.form["temp_low"]),
         "temp_high" : int(request.form["temp_high"]),
-        "precip_low" : int(request.form["precip_low"]),
-        "precip_high" : int(request.form["precip_high"]),
+        "precip" : int(request.form["precip"]),
         "settle_type": request.form["settle_type"].split(",")
     }
     occupation = request.form["occupation"]

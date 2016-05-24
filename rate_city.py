@@ -5,7 +5,7 @@ import time
 import ipdb
 
 all_cities_raw = None
-with open(os.path.join("datasource", "all_cities_data_dummy.json"), "r") as f:
+with open(os.path.join("datasource", "all_cities_full.json"), "r") as f:
     all_cities_raw = list(map(lambda x: json.loads(x), f.readlines()))
 
 # --------------------------------------------------
@@ -33,7 +33,7 @@ def rampf(x):
 def rate_city_char(city_obj, city_char):
     # calculate climate score 
     temp_score = rampf(12.5 - rampf(city_char["temp_low"] - city_obj["temp_low"]) -  rampf(city_obj["temp_high"] - city_char["temp_high"]))
-    precip_score = rampf(12.5 - rampf(city_char["precip_low"] - city_obj["precip_low"]) -  rampf(city_obj["precip_high"] - city_char["precip_high"]))
+    precip_score = rampf(12.5 - abs(city_char["precip"] - city_obj["precip"]) / 2)
     climate_score = temp_score + precip_score 
 
     # calculate city type and score it
