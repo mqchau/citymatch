@@ -4,20 +4,57 @@
 
         <script src="https://code.jquery.com/jquery-2.2.0.min.js"></script>
         <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+        <link href="css/index.css" rel="stylesheet">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.0/angular.js"></script>
         <script src="js/app.js"></script>
-        <script src="js/controller.js"></script>
         <script src="js/factory.js"></script>
+        <script src="js/controller.js"></script>
     </head>
 
     <body ng-app="citymatch-app">
-        <div id="main-div">
+        <div id="main-div" ng-controller="main-div-controller">
             <div id="title-bar" class="row text-center">
                 <h1> City Match: find best city you can afford</h1>
             </div> 
             <div id="user-input" class="row">
-                <div class="col-md-4">
-                    
+                <!-- occupation -->
+                <div class="col-md-3 col-md-offset-1">
+                    Select a popular occupation:<br/>
+                    <select ng-model="occupation_select" ng-disabled="occupation_custom_select.length > 0">
+                        <option ng-repeat="occupation in cached_occupation" ng-value="'{{occupation}}'">{{occupation}}</option>
+                    </select><br/>
+                    Or enter a new occupation here:<br/>
+                    <input type="text" ng_model="occupation_custom_select"></input>
+                </div>
+                <!-- climate -->
+                <div class="col-md-4 text-center">
+                    <!-- temperature -->
+                    <div class="col-md-6">
+                        Desired high temperature:
+                        <input type="number" ng_model="temp_high_select"></input>
+                    </div>
+                    <!-- precipitation -->
+                    <div class="col-md-6">
+                        Desired low temperature:
+                        <input type="number" ng_model="temp_low_select"></input>
+                    </div>
+                </div>
+
+                <!-- city type -->
+                <div class="col-md-2">
+                    <h3>Population density</h3>
+                    <select ng_model="density_select">
+                        <option ng-value="urban">Urban</option>
+                        <option ng-value="suburban">Suburban</option>
+                        <option ng-value="rural">Rural</option>
+                    </select>
+                </div>
+
+                <!-- button to start -->
+                <div class="col-md-1">
+                    <button class="btn btn-primary btn-lg" ng-click="search_city()">
+                        Search city
+                    </button>
                 </div>
             </div>
         </div>
